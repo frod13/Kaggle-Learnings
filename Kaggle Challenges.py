@@ -125,7 +125,7 @@ for feature in feature_names:
 #%%2-D plot
 # Similar to previous PDP plot except we use pdp_interact instead of pdp_isolate and pdp_interact_plot instead of pdp_isolate_plot
 features_to_plot = ['Goal Scored', 'Distance Covered (Kms)']
-inter1  =  pdp.pdp_interact(model=tree_model, dataset=val_X, model_features=feature_names, features=features_to_plot)
+inter1  =  pdp.pdp_interact(model=tree_model, dataset=test_X, model_features=feature_names, features=features_to_plot)
 
 pdp.pdp_interact_plot(pdp_interact_out=inter1, feature_names=features_to_plot, plot_type='contour')
 plt.show()
