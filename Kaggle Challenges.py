@@ -121,11 +121,63 @@ for feature in feature_names:
     pdp_dist = pdp.pdp_isolate(model=rf_model, dataset=test_X, model_features=feature_names, feature=feature)
     pdp.pdp_plot(pdp_dist, feature)
     plt.show()
+    
+tree_graph = tree.export_graphviz(tree_model, out_file=None, feature_names=feature_names,filled=True,rounded=True)
+graphviz.Source(tree_graph)
 
 #%%2-D plot
 # Similar to previous PDP plot except we use pdp_interact instead of pdp_isolate and pdp_interact_plot instead of pdp_isolate_plot
 features_to_plot = ['Goal Scored', 'Distance Covered (Kms)']
-inter1  =  pdp.pdp_interact(model=tree_model, dataset=test_X, model_features=feature_names, features=features_to_plot)
+features_to_plot = ['Goal Scored', 'Off-Target']
+inter1  =  pdp.pdp_interact(model=rf_model, dataset=test_X, model_features=feature_names, features=features_to_plot)
 
 pdp.pdp_interact_plot(pdp_interact_out=inter1, feature_names=features_to_plot, plot_type='contour')
 plt.show()
+
+
+#%% practice rf and xgboost classifiers with permutation importance and partial dependence plots
+
+titanic_train = pd.read_csv('input/titanic_train.csv')
+titanic_test = pd.read_csv('input/titanic_test.csv')
+
+titanic_train.describe()
+titanic_train.isnull().sum()
+#177 missing values for Age, 687 missing values for Cabin, 2 missing values for Embarked
+
+#%% train a simple random forest model regressor to input missing values for age. we drop Cabin and Embarked, we use the mode.
+columns_impute = titanic_train.columns.tolist()
+for x in ['Survived','Cabin','PassengerId','Name','Ticket']:
+    try:
+        columns_impute.remove(x)
+    except:
+        print('column',x,'not in list!')
+
+titanic_train_impute = titanic_train[columns_impute]
+titanic_test_impute = titanic_test[columns_impute]
+
+#%%
+titanic = titanic_train_impute.append(titanic_test_impute).reset_index(drop=True)
+titanic['Embarked'] = titanic['Embarked'].fillna(titanic.Embarked.mode().iloc[0])
+titanic[['Fare']].fillna(titanic.Fare.median(),inplace=True)
+titanic = titanic[~titanic.Age.isna()]
+
+#one hot encode embarked column. should also do this before we decide to impute ages!!
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import LabelEncoder,OneHotEncoder
+
+#two-step process to onehotencode string columns
+label_encoder = LabelEncoder()
+embark_ohe = OneHotEncoder(sparse=False)
+titanic['Embark_encoded'] = label_encoder.fit_transform(titanic.Embarked)
+embark_ohe_fit = embark_ohe.fit_transform(titanic.Embark_encoded.values.reshape(-1,1))
+dfOneHot = pd.DataFrame(embark_ohe_fit,columns = ["Embarked_"+label_encoder.inverse_transform(int(i)) for i in range(embark_ohe_fit.shape[1])])
+titanic = pd.concat([titanic, dfOneHot], axis=1)
+_ = titanic.pop('Embarked')
+_ = titanic.pop('Embark_encoded')
+
+
+#apply to each row with a NaN value in age a prediction with the model
+rf = RandomForestRegressor()
+no_age = titanic.columns.tolist()
+no_age.remove('Age')
+rf.fit(titanic[no_age].values,titanic['Age'].values)
