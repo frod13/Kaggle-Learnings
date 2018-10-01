@@ -159,25 +159,33 @@ titanic_test_impute = titanic_test[columns_impute]
 titanic = titanic_train_impute.append(titanic_test_impute).reset_index(drop=True)
 titanic['Embarked'] = titanic['Embarked'].fillna(titanic.Embarked.mode().iloc[0])
 titanic[['Fare']].fillna(titanic.Fare.median(),inplace=True)
-titanic = titanic[~titanic.Age.isna()]
 
 #one hot encode embarked column. should also do this before we decide to impute ages!!
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.preprocessing import LabelEncoder,OneHotEncoder
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+
+#WRITE A FUNCTION TO CONVERT ALL STRING CATEGORIES TO One-hot Encode
+for x in titanic.columns:
+    if titanic[x].dtype not in ['float64','int64']:
+              
 
 #two-step process to onehotencode string columns
-label_encoder = LabelEncoder()
-embark_ohe = OneHotEncoder(sparse=False)
-titanic['Embark_encoded'] = label_encoder.fit_transform(titanic.Embarked)
-embark_ohe_fit = embark_ohe.fit_transform(titanic.Embark_encoded.values.reshape(-1,1))
-dfOneHot = pd.DataFrame(embark_ohe_fit,columns = ["Embarked_"+label_encoder.inverse_transform(int(i)) for i in range(embark_ohe_fit.shape[1])])
-titanic = pd.concat([titanic, dfOneHot], axis=1)
-_ = titanic.pop('Embarked')
-_ = titanic.pop('Embark_encoded')
+def ohe_encode(df,column):
+    label_encoder = LabelEncoder()
+    embark_ohe = OneHotEncoder(sparse=False)
+    titanic['Embark_encoded'] = label_encoder.fit_transform(titanic.Embarked)
+    embark_ohe_fit = embark_ohe.fit_transform(titanic.Embark_encoded.values.reshape(-1,1))
+    dfOneHot = pd.DataFrame(embark_ohe_fit,columns = ["Embarked_"+label_encoder.inverse_transform(int(i)) for i in range(embark_ohe_fit.shape[1])])
+    titanic = pd.concat([titanic, dfOneHot], axis=1)
+    _ = titanic.pop('Embarked')
+    _ = titanic.pop('Embark_encoded')
 
+age_null = titanic[titanic['Age'].isnull()].reset_index()
+age_notnull = titanic[~titanic['Age'].isnull()].reset_index()
+
+from sklearn.ensemble import RandomForestRegressor
 
 #apply to each row with a NaN value in age a prediction with the model
 rf = RandomForestRegressor()
 no_age = titanic.columns.tolist()
 no_age.remove('Age')
-rf.fit(titanic[no_age].values,titanic['Age'].values)
+rf.fit(age_notnull[no_age].values,age_notnull['Age'].values)
